@@ -26,61 +26,30 @@ exports.getCart = async (req, res) => {
 
 exports.addToCart = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId } = req.body;
 
-    // Basic validation
-    if (!productId || !quantity || quantity <= 0) {
-      return res.status(400).json({ message: "Valid productId and quantity are required" });
-    }
-
-    // Check if product exists
-    const product = await Product.findById(productId);
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    // Get user's cart
     let cart = await Cart.findOne({ user: req.user._id });
+
     if (!cart) {
       cart = new Cart({ user: req.user._id, items: [] });
     }
 
-    // Check if product already in cart
+    // Check if product already exists in the cart
     const existingItem = cart.items.find(item => item.product.toString() === productId);
 
     if (existingItem) {
-      // New total quantity
-      const newQuantity = existingItem.quantity + quantity;
-
-      if (newQuantity > product.stock) {
-        return res.status(400).json({
-          message: `Only ${product.stock} items available in stock`
-        });
-      }
-
-      existingItem.quantity = newQuantity;
-    } else {
-      if (quantity > product.stock) {
-        return res.status(400).json({
-          message: `Only ${product.stock} items available in stock`
-        });
-      }
-
-      cart.items.push({ product: productId, quantity });
+      return res.status(400).json({ message: "Item already exists in cart" });
     }
 
+    // Add new item with quantity = 1
+    cart.items.push({ product: productId, quantity: 1 });
+
     await cart.save();
+    res.status(201).json(cart);
 
-    // Populate product details for response
-    const populatedCart = await cart.populate("items.product", "name price stock");
-
-    res.status(200).json({
-      message: "Item added to cart successfully",
-      data: populatedCart
-    });
   } catch (error) {
     console.error("Error adding to cart:", error);
-    res.status(500).json({ message: "Failed to add item to cart" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -119,36 +88,58 @@ exports.removeFromCart = async (req, res) => {
   }
 };
 
-exports.reduceCartItem = async (req, res) => {
+exports.updateCartItem = async (req, res) => {
   try {
     const { productId } = req.params;
+    const { action } = req.body; // "increase" or "decrease"
 
     let cart = await Cart.findOne({ user: req.user._id });
     if (!cart) {
       return res.status(404).json({ message: "Cart not found" });
     }
 
-    // Find the item in the cart
+    // Find product to check stock
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // Find item in the cart
     const itemIndex = cart.items.findIndex(item => item.product.toString() === productId);
 
     if (itemIndex === -1) {
       return res.status(404).json({ message: "Item not found in cart" });
     }
 
-    // Reduce quantity by 1
-    if (cart.items[itemIndex].quantity > 1) {
-      cart.items[itemIndex].quantity -= 1;
-    } else {
-      // If quantity is 1, remove item completely
-      cart.items.splice(itemIndex, 1);
+    if (action === "increase") {
+      // Check stock before increasing
+      if (cart.items[itemIndex].quantity < product.stock) {
+        cart.items[itemIndex].quantity += 1;
+      } else {
+        return res.status(400).json({ message: "Cannot add more, product out of stock" });
+      }
+    } 
+    
+    else if (action === "decrease") {
+      if (cart.items[itemIndex].quantity > 1) {
+        cart.items[itemIndex].quantity -= 1;
+      } else {
+        // If quantity is 1, remove item from cart
+        cart.items.splice(itemIndex, 1);
+      }
+    } 
+    
+    else {
+      return res.status(400).json({ message: "Invalid action. Use 'increase' or 'decrease'" });
     }
 
     await cart.save();
     res.json(cart);
 
   } catch (error) {
-    console.error("Error reducing cart item:", error);
+    console.error("Error updating cart item:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
 
