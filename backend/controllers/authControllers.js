@@ -16,6 +16,7 @@ exports.register = async (req, res) => {
 
     res.json({
       token: generateAuthToken(user._id),
+      role:user.role,
       message: "User created successfully"
     });
   } catch (error) {
@@ -40,6 +41,7 @@ exports.login = async (req, res) => {
     // If login successful
     res.json({
       token: generateAuthToken(user._id),
+      role:user.role,
       message: "Login successful"
     });
 
