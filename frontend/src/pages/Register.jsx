@@ -26,7 +26,7 @@ export default function Register() {
       await api.register({ name, email, password, role });
       navigate('/login');
     } catch (err) {
-      setError(err.message || 'Failed to register');
+      setError(err.message || 'Wait for 2 mins server to wake up');
     } finally {
       setLoading(false);
     }

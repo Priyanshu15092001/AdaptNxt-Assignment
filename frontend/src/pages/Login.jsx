@@ -33,7 +33,7 @@ export default function Login() {
       const redirect = (location.state && location.state.from && location.state.from.pathname) || (userRole === 'admin' ? '/admin/products' : '/products');
       navigate(redirect, { replace: true });
     } catch (err) {
-      setError(err.message || 'Failed to login');
+      setError('Please wait for 2 mins server to wake up');
     } finally {
       setLoading(false);
     }
